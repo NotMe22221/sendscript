@@ -1,0 +1,14 @@
+import Link from "next/link";
+import { ArrowRight, ReceiptText } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { getRequestContext } from "@/lib/api/route";
+import { getWorkspaceSnapshot } from "@/lib/data/workspace";
+import { formatDateTime, formatMoney } from "@/lib/format";
+
+export default async function TransactionsPage() {
+  const workspace = await getWorkspaceSnapshot(await getRequestContext());
+  return <div className="page-enter"><PageHeader title="Transactions" description={`Safe payment metadata and policy outcomes shared across ${workspace.organizationName}.`} /><Card className="overflow-hidden">{workspace.transactions.length === 0 ? <div className="grid place-items-center px-6 py-16 text-center"><span className="grid size-11 place-items-center rounded-xl bg-[#eff4ff] text-[#155eef]"><ReceiptText className="size-5" /></span><p className="mt-4 text-sm font-semibold text-[#344054]">No transaction records yet</p><p className="mt-1 max-w-md text-xs leading-5 text-[#667085]">Complete a mission execution to create the first organization-shared transaction and immutable audit trail.</p></div> : <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-[#f9fafb] text-[11px] uppercase tracking-[.05em] text-[#667085]"><tr><th className="px-5 py-3">Created</th><th className="px-5 py-3">Merchant</th><th className="px-5 py-3">Amount</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Reference</th><th /></tr></thead><tbody className="divide-y divide-[#eaecf0]">{workspace.transactions.map((transaction) => <tr key={transaction.id} className="hover:bg-[#fcfcfd]"><td className="tabular px-5 py-4 text-[#667085]">{formatDateTime(transaction.createdAt)}</td><td className="px-5 py-4 font-medium">{transaction.merchant}</td><td className="tabular px-5 py-4 font-medium">{formatMoney(transaction.amountCents)}</td><td className="px-5 py-4"><Badge tone={transaction.status === "succeeded" ? "success" : transaction.status === "blocked" || transaction.status === "failed" ? "danger" : "neutral"}>{transaction.status}</Badge></td><td className="px-5 py-4 font-mono text-xs text-[#667085]">{transaction.checkoutReference ?? transaction.failureCode ?? "Pending"}</td><td className="px-5 py-4 text-right"><Button variant="ghost" size="sm" asChild><Link href={`/transactions/${transaction.id}`}>Inspect<ArrowRight /></Link></Button></td></tr>)}</tbody></table></div>}<div className="border-t border-[#eaecf0] bg-[#fafbf8] px-5 py-3 text-[11px] text-[#7d8797]">{workspace.mode === "live" ? "Persisted for this organization · safe metadata only" : "Seeded preview · connect Supabase to persist records"}</div></Card></div>;
+}
