@@ -183,26 +183,6 @@ export function pravaPublicMetadata(credentials: PravaCredentials, cardCount: nu
 }
 
 export async function getIntegrationOverview(context: RequestContext): Promise<IntegrationOverview> {
-  if (context.mode === "demo" || !readiness.supabase) {
-    const openai = deploymentOpenAi();
-    const prava = deploymentPrava();
-    return {
-      organizationId: context.organizationId,
-      organizationName: "Acme Labs",
-      role: "admin",
-      memberCount: 1,
-      canManage: false,
-      members: [{ id: "demo-judge", name: "Maya Chen", email: "judge@spendscript.dev", role: "admin", joinedAt: new Date().toISOString() }],
-      sharedSchemaReady: false,
-      services: [
-        { provider: "supabase", connected: false, source: "none", label: "Supabase workspace", detail: "Connect Supabase first to share configuration across accounts.", metadata: {} },
-        { provider: "openai", connected: Boolean(openai), source: openai ? "deployment" : "none", label: "OpenAI", detail: openai ? "Configured for this deployment." : "Not connected", metadata: openai ? { model: openai.model, keyHint: hint(openai.apiKey) } : {} },
-        { provider: "prava", connected: Boolean(prava), source: prava ? "deployment" : "none", label: "Prava sandbox", detail: prava ? "Configured for this deployment." : "Not connected", metadata: prava ? pravaPublicMetadata(prava, 0) : {} },
-      ],
-      audit: [],
-    };
-  }
-
   const admin = createAdminClient();
   const [connectionResult, organizationResult, memberResult, profileResult, auditResult] = await Promise.all([
     organizationRows(context.organizationId),

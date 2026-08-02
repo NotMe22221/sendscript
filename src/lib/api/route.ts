@@ -6,16 +6,16 @@ import { failure, success } from "@/lib/domain/schemas";
 import { createClient } from "@/lib/supabase/server";
 
 export interface RequestContext {
-  mode: "live" | "demo";
+  mode: "live";
   userId: string;
   organizationId: string;
   role: "admin" | "manager" | "member";
-  supabase?: SupabaseClient;
+  supabase: SupabaseClient;
 }
 
 export async function getRequestContext(): Promise<RequestContext> {
   if (!readiness.supabase) {
-    return { mode: "demo", userId: "demo-judge", organizationId: "10000000-0000-4000-8000-000000000001", role: "admin" };
+    throw new RouteError("SUPABASE_NOT_CONFIGURED", "Connect Supabase before using the product workspace.", 503, true);
   }
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getClaims();
@@ -54,6 +54,10 @@ export function routeError(error: unknown) {
     INTEGRATION_CREDENTIALS_INVALID: "The saved integration credentials could not be decrypted. Reconnect the provider.",
     INTEGRATION_SAVE_FAILED: "The shared integration could not be saved.",
     INTEGRATION_DISCONNECT_FAILED: "The shared integration could not be disconnected.",
+    SUPABASE_NOT_CONFIGURED: "Supabase must be connected before the product workspace can be used.",
+    CATALOG_EMPTY: "No catalog offers are available for this organization.",
+    ACTIVE_POLICY_REQUIRED: "Create and activate a procurement policy before evaluating offers.",
+    PRAVA_CARD_REQUIRED: "The connected Prava customer has no active payment card.",
   };
   return NextResponse.json(failure(code || "INTERNAL_ERROR", known[code] ?? "The operation could not be completed safely.", true), { status: code.startsWith("OPENAI_") || code.startsWith("PRAVA_") ? 503 : 500 });
 }

@@ -6,6 +6,6 @@ export async function GET() {
     const context = await getRequestContext();
     const resolved = await getPravaProvider(context.organizationId);
     const cards = resolved.cards ?? await resolved.provider.listCards();
-    return ok(cards, resolved.live && context.mode === "live" ? "live" : "demo");
+    return ok(cards, "live");
   } catch (error) { return routeError(error); }
 }

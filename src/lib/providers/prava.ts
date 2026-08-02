@@ -175,59 +175,19 @@ export class PravaRestProvider implements PravaPaymentProvider {
   }
 }
 
-export class DemoPravaProvider implements PravaPaymentProvider {
-  async listCards(): Promise<SafeCard[]> {
-    return [
-      { id: "card_demo_4242", brand: "visa", last4: "4242", expiryMonth: 12, expiryYear: 2030, isDefault: true, status: "active" },
-      { id: "card_demo_1881", brand: "mastercard", last4: "1881", expiryMonth: 9, expiryYear: 2029, isDefault: false, status: "active" },
-    ];
-  }
-  async createMandateSession(contract: AuthorizationContract): Promise<SafePravaMetadata> {
-    const reference = contract.missionId.replaceAll("-", "").slice(0, 16);
-    return { sessionId: `sess_demo_${reference}`, mandateId: `mandate_demo_${reference}`, status: "active" };
-  }
-  async resolveActiveMandate(): Promise<SafePravaMetadata> {
-    return { sessionId: "sess_demo_8f72", mandateId: "mandate_demo_4d91", status: "active" };
-  }
-  async getMandate(mandateId: string): Promise<SafePravaMetadata> {
-    return { mandateId, status: "active" };
-  }
-  async revokeMandate(mandateId: string): Promise<SafePravaMetadata> {
-    return { mandateId, status: "cancelled" };
-  }
-  async chargeMandate(mandateId: string, amountCents: number) {
-    if (amountCents > 30800) {
-      return { safeMetadata: { mandateId, status: "failed", failureCode: "THRESHOLD_EXCEEDED" } };
-    }
-    return {
-      safeMetadata: { mandateId, responseId: "resp_demo_779", status: "authorized" },
-      credential: { kind: "sandbox-demo-token" },
-    };
-  }
-  async reportMandateCharge(mandateId: string, transactionId: string, approved: boolean) {
-    return { mandateId, responseId: transactionId, status: approved ? "completed" : "failed" };
-  }
-}
-
 export interface ResolvedPravaProvider {
   provider: PravaPaymentProvider;
-  live: boolean;
-  source: IntegrationSource | "demo";
+  live: true;
+  source: IntegrationSource;
   cards?: SafeCard[];
 }
 
 export async function getPravaProvider(organizationId: string): Promise<ResolvedPravaProvider> {
   const resolved = await resolvePravaConnection(organizationId);
-  if (!resolved) return { provider: new DemoPravaProvider(), live: false, source: "demo" };
+  if (!resolved) throw new Error("PRAVA_NOT_CONFIGURED");
 
   const liveProvider = new PravaRestProvider(resolved.credentials);
-  try {
-    const cards = await liveProvider.listCards();
-    if (cards.length > 0) return { provider: liveProvider, live: true, source: resolved.source, cards };
-  } catch {
-    // A configured sandbox account is not execution-ready until its customer
-    // has an enrolled card. Use the explicitly labelled simulation so the
-    // judge workflow remains complete without claiming a live transaction.
-  }
-  return { provider: new DemoPravaProvider(), live: false, source: "demo" };
+  const cards = await liveProvider.listCards();
+  if (!cards.length) throw new Error("PRAVA_CARD_REQUIRED");
+  return { provider: liveProvider, live: true, source: resolved.source, cards };
 }

@@ -1,5 +1,4 @@
 import { getRequestContext, ok, routeError } from "@/lib/api/route";
-import { demoEvents } from "@/lib/domain/demo";
 import type { ActivityEvent } from "@/lib/domain/schemas";
 
 function toneFor(type: string): ActivityEvent["tone"] {
@@ -12,8 +11,8 @@ function toneFor(type: string): ActivityEvent["tone"] {
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const context = await getRequestContext(); const { id } = await params;
-    if (context.mode === "live" && context.supabase) {
-      const { data, error } = await context.supabase.from("activity_events").select("id,mission_id,event_type,title,detail,actor_label,created_at").eq("mission_id", id).order("created_at", { ascending: false });
+    {
+      const { data, error } = await context.supabase.from("activity_events").select("id,mission_id,event_type,title,detail,actor_label,created_at").eq("organization_id", context.organizationId).eq("mission_id", id).order("created_at", { ascending: false });
       if (error) throw new Error(`DATABASE_TIMELINE_FAILED:${error.code}`);
       const events: ActivityEvent[] = (data ?? []).map((event) => ({
         id: String(event.id),
@@ -27,6 +26,5 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
       }));
       return ok({ events }, "live");
     }
-    return ok({ events: demoEvents }, "demo");
   } catch (error) { return routeError(error); }
 }

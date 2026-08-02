@@ -8,13 +8,14 @@ export async function POST(request: Request) {
   try {
     const context = await getRequestContext();
     const requestedContract = AuthorizationContractSchema.parse(await request.json());
-    console.info("[prava.sessions] started", { missionId: requestedContract.missionId, mode: context.mode });
+    console.info("[prava.sessions] started", { missionId: requestedContract.missionId });
     let contract = requestedContract;
-    if (context.mode === "live" && context.supabase) {
-      const [{ data: approval, error: approvalError }, { data: decision, error: decisionError }, { data: mission, error: missionError }] = await Promise.all([
+    {
+      const [{ data: approval, error: approvalError }, { data: decision, error: decisionError }, { data: mission, error: missionError }, { data: requirementRow }] = await Promise.all([
         context.supabase.from("approvals").select("amount_cap_cents,safe_card_id,expires_at,status").eq("mission_id", requestedContract.missionId).eq("status", "approved").order("decided_at", { ascending: false }).limit(1).maybeSingle(),
         context.supabase.from("decisions").select("selected_offer_id").eq("mission_id", requestedContract.missionId).maybeSingle(),
         context.supabase.from("missions").select("title,status").eq("id", requestedContract.missionId).maybeSingle(),
+        context.supabase.from("mission_requirements").select("requirements").eq("mission_id", requestedContract.missionId).maybeSingle(),
       ]);
       if (approvalError || !approval || decisionError || !decision || missionError || !mission) throw new RouteError("APPROVED_CONTRACT_REQUIRED", "A persisted approval and decision are required before authorization.", 409, false);
       if (!approval.amount_cap_cents || !approval.safe_card_id || !approval.expires_at) throw new RouteError("APPROVED_CONTRACT_INCOMPLETE", "The approved spending contract is incomplete.", 409, false);
@@ -30,18 +31,18 @@ export async function POST(request: Request) {
         amountCapCents: Number(approval.amount_cap_cents),
         allowedCharges: 1,
         expiresAt: String(approval.expires_at),
-        itemDescription: `${Number(offer.quantity)} × ${String(offer.product_name)}`,
+        itemDescription: `${Number((requirementRow?.requirements as { quantity?: number } | null)?.quantity ?? offer.quantity)} × ${String(offer.product_name)}`,
       };
     }
     const resolved = await getPravaProvider(context.organizationId);
     const result = await resolved.provider.createMandateSession(contract);
-    if (context.mode === "live") {
+    {
       const { error } = await createAdminClient().from("prava_authorizations").insert({ organization_id: context.organizationId, mission_id: contract.missionId, session_id: result.sessionId, mandate_id: result.mandateId, status: result.status, merchant: contract.merchant, amount_cap_cents: contract.amountCapCents, allowed_charges: contract.allowedCharges, expires_at: contract.expiresAt, safe_card_id: contract.cardId });
       if (error) throw new Error(`DATABASE_AUTHORIZATION_FAILED:${error.code}`);
-      await appendActivityEvent(context, contract.missionId, "authorization.active", "Mandate activated", `One charge at ${contract.merchant}, capped at ${(contract.amountCapCents / 100).toFixed(2)} USD for 24 hours.`, resolved.live ? "Prava sandbox" : "Prava simulation");
+      await appendActivityEvent(context, contract.missionId, "authorization.pending", "Prava authorization created", `Hosted approval created for one charge at ${contract.merchant}, capped at ${(contract.amountCapCents / 100).toFixed(2)} USD.`, "Prava sandbox");
     }
-    console.info("[prava.sessions] completed", { missionId: contract.missionId, providerMode: resolved.live ? "live" : "demo" });
-    return ok(result, resolved.live && context.mode === "live" ? "live" : "demo", 201);
+    console.info("[prava.sessions] completed", { missionId: contract.missionId, providerMode: "live" });
+    return ok(result, "live", 201);
   } catch (error) {
     console.error("[prava.sessions] failed", { code: error instanceof Error ? error.message.split(":")[0] : "UNKNOWN_ERROR" });
     return routeError(error);

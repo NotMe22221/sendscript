@@ -1,12 +1,6 @@
 import "server-only";
 
 import type { RequestContext } from "@/lib/api/route";
-import {
-  demoEvents,
-  demoMission,
-  demoOffers,
-  demoTransactions,
-} from "@/lib/domain/demo";
 import type {
   ActivityEvent,
   MissionRequirements,
@@ -47,7 +41,7 @@ export interface WorkspaceTransaction extends TransactionResult {
 }
 
 export interface WorkspaceSnapshot {
-  mode: "live" | "demo";
+  mode: "live";
   organizationName: string;
   missions: WorkspaceMission[];
   transactions: WorkspaceTransaction[];
@@ -59,7 +53,6 @@ export interface WorkspaceSnapshot {
 }
 
 function referenceFor(id: string, index = 0) {
-  if (id === demoMission.id) return "MSN-1048";
   const compact = id.replaceAll("-", "").slice(0, 6).toUpperCase();
   return `MSN-${compact || String(1048 - index)}`;
 }
@@ -69,33 +62,6 @@ function eventTone(type: string): ActivityEvent["tone"] {
   if (/(blocked|failed|rejected|revoked|cancelled)/i.test(type)) return "danger";
   if (/(created|evaluated|authorized|decision)/i.test(type)) return "info";
   return "neutral";
-}
-
-function demoSnapshot(): WorkspaceSnapshot {
-  return {
-    mode: "demo",
-    organizationName: "Acme Labs preview",
-    missions: [{
-      id: demoMission.id,
-      reference: "MSN-1048",
-      title: demoMission.title,
-      owner: demoMission.owner,
-      status: demoMission.status,
-      budgetCents: demoMission.requirements.budgetCents,
-      createdAt: demoMission.createdAt,
-      requirements: demoMission.requirements,
-    }],
-    transactions: demoTransactions.map((transaction) => ({ ...transaction, safeMetadata: {} })),
-    merchants: [
-      { id: "merchant-a", name: "Merchant A", domain: "merchant-a.example.com", category: "Computer accessories", active: true },
-      { id: "cdw", name: "CDW", domain: "cdw.com", category: "Enterprise technology", active: true },
-      { id: "staples", name: "Staples Business", domain: "staples.com", category: "Office and accessories", active: true },
-    ],
-    policies: [],
-    events: demoEvents,
-    offerCount: demoOffers.length,
-    compliantOfferCount: 4,
-  };
 }
 
 type MissionRow = {
@@ -110,8 +76,6 @@ type RequirementRow = { mission_id: string; requirements: unknown };
 type ProfileRow = { id: string; full_name: string };
 
 export async function getWorkspaceSnapshot(context: RequestContext): Promise<WorkspaceSnapshot> {
-  if (context.mode === "demo" || !context.supabase) return demoSnapshot();
-
   const supabase = context.supabase;
   const [
     organizationResult,

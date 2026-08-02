@@ -9,13 +9,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { demoPolicyRules } from "@/lib/domain/demo";
 import type { ApiResponse } from "@/lib/domain/schemas";
 import type { PolicyDocument } from "@/lib/providers/openai";
 
 const policyText = `Hardware purchases are allowed from Merchant A, CDW, and Staples Business. The total mission must not exceed $500 and no request may contain more than 12 units. Sellers require a rating of at least 4.2. Purchases at or above $250 require manager approval. Items must arrive by the mission's needed-by date.`;
 
-export function PolicyStudio({ initialPolicy }: { initialPolicy?: { name: string; source: string; version: number; status: string }; mode: "live" | "demo" }) {
+export function PolicyStudio({ initialPolicy }: { initialPolicy?: { name: string; source: string; version: number; status: string; parsedRules: Record<string, unknown> } }) {
   const [source, setSource] = useState(initialPolicy?.source ?? policyText);
   const [pending, setPending] = useState(false);
   const [parsed, setParsed] = useState<PolicyDocument | null>(null);
@@ -29,6 +28,13 @@ export function PolicyStudio({ initialPolicy }: { initialPolicy?: { name: string
     ...(scenario.onTime ? [] : ["Delivery misses required date"]),
   ];
   const requiresApproval = scenario.amount >= 250;
+  const visibleRules = parsed?.rules.map((rule) => ({
+    label: rule.field.replaceAll("_", " "),
+    value: `${rule.operator} ${Array.isArray(rule.value) ? rule.value.join(", ") : String(rule.value)}`,
+    effect: rule.effect.replaceAll("_", " "),
+  })) ?? Object.entries(initialPolicy?.parsedRules ?? {})
+    .filter(([key]) => key !== "document")
+    .map(([key, value]) => ({ label: key.replace(/([A-Z])/g, " $1"), value: Array.isArray(value) ? value.join(", ") : String(value), effect: "enforce" }));
 
   async function parse() {
     setPending(true);
@@ -37,7 +43,7 @@ export function PolicyStudio({ initialPolicy }: { initialPolicy?: { name: string
       const payload = (await response.json()) as ApiResponse<PolicyDocument>;
       if (!payload.ok) throw new Error(payload.error.message);
       setParsed(payload.data);
-      toast.success(payload.mode === "live" ? "Policy parsed with structured output" : "Demo policy structure loaded");
+      toast.success("Policy parsed with structured output");
     } catch (error) { toast.error(error instanceof Error ? error.message : "Policy parsing failed"); }
     finally { setPending(false); }
   }
@@ -62,7 +68,7 @@ export function PolicyStudio({ initialPolicy }: { initialPolicy?: { name: string
 
         <Card>
           <CardHeader><div><CardTitle>Executable rules</CardTitle><p className="mt-1 text-xs text-[#667085]">Human-readable conditions are compiled into typed constraints.</p></div><Badge tone={parsed ? "info" : "neutral"}>{parsed ? `${parsed.confidence * 100}% confidence` : "Seeded v3"}</Badge></CardHeader>
-          <div className="overflow-x-auto"><table className="w-full min-w-[600px] text-left text-sm"><thead className="border-y border-[#eaecf0] bg-[#f9fafb] text-[11px] uppercase tracking-[.05em] text-[#667085]"><tr><th className="px-5 py-3">Field</th><th className="px-5 py-3">Constraint</th><th className="px-5 py-3">Effect</th><th className="px-5 py-3">Status</th></tr></thead><tbody className="divide-y divide-[#eaecf0]">{demoPolicyRules.map((rule) => <tr key={rule.label}><td className="px-5 py-3.5 font-medium">{rule.label}</td><td className="px-5 py-3.5 text-[#475467]">{rule.value}</td><td className="px-5 py-3.5 text-[#475467]">{rule.effect}</td><td className="px-5 py-3.5"><Badge tone="success"><Check className="size-3" />Valid</Badge></td></tr>)}</tbody></table></div>
+          <div className="overflow-x-auto"><table className="w-full min-w-[600px] text-left text-sm"><thead className="border-y border-[#eaecf0] bg-[#f9fafb] text-[11px] uppercase tracking-[.05em] text-[#667085]"><tr><th className="px-5 py-3">Field</th><th className="px-5 py-3">Constraint</th><th className="px-5 py-3">Effect</th><th className="px-5 py-3">Status</th></tr></thead><tbody className="divide-y divide-[#eaecf0]">{visibleRules.map((rule) => <tr key={rule.label}><td className="px-5 py-3.5 font-medium">{rule.label}</td><td className="px-5 py-3.5 text-[#475467]">{rule.value}</td><td className="px-5 py-3.5 text-[#475467]">{rule.effect}</td><td className="px-5 py-3.5"><Badge tone="success"><Check className="size-3" />Valid</Badge></td></tr>)}</tbody></table>{visibleRules.length === 0 ? <p className="px-5 py-8 text-center text-sm text-[#667085]">Parse the policy to review executable rules.</p> : null}</div>
           <div className="flex justify-end border-t border-[#eaecf0] bg-[#fcfcfd] px-5 py-4"><Button onClick={save} disabled={pending}><Save />Publish version {version + 1}</Button></div>
         </Card>
       </div>

@@ -1,8 +1,10 @@
 # SpendScript
 
-SpendScript is a policy-controlled procurement agent built for the Agentic Commerce Hackathon. It turns a plain-language request into structured requirements, evaluates a controlled offer catalog deterministically, captures manager approval, creates a merchant-scoped Prava mandate, proves an over-limit charge is blocked, completes the valid purchase, and preserves a safe audit record.
+SpendScript is a policy-controlled procurement platform built for the Agentic Commerce Hackathon. It turns each signed-in employee's request into persisted structured requirements, evaluates the organization's supplier catalog deterministically, captures manager approval, creates a merchant-scoped Prava mandate, completes the authorized purchase, and preserves a safe audit record.
 
-## Judge workflow
+The application does not fabricate successful AI, payment, or checkout results. Supabase authentication and persistence are required for the product workspace. OpenAI must be connected to create a mission, and Prava must be connected with an enrolled sandbox card before approval or execution can continue.
+
+## Product workflow
 
 1. Sign in to the seeded Acme Labs workspace.
 2. Create a mission for 8 USB-C hubs under $350.
@@ -13,7 +15,7 @@ SpendScript is a policy-controlled procurement agent built for the Agentic Comme
 7. Attempt $358 and observe `THRESHOLD_EXCEEDED` with no checkout.
 8. Execute $308 and inspect the transaction plus immutable activity trail.
 
-When credentials are absent, the app starts in a clearly labeled configuration preview. The experience and deterministic engines remain interactive, but no screen claims that preview responses are live. Supabase is required for authenticated persistence; Prava test keys and a real WebAuthn approval are required for a verified sandbox transaction.
+The included Acme Labs records are optional starter content for reviewers. They use the same organization-scoped database tables, APIs, RLS policies, state transitions, and audit trail as every newly created mission; they are not a browser-side simulation or runtime fallback.
 
 ## Stack
 
@@ -44,10 +46,10 @@ For the fastest judge setup:
 2. Click **Test connection**. If the database schema is missing, finish the other providers, save, then use **Copy migration SQL** on the completion screen and run it in Supabase SQL Editor.
 3. The wizard can accept OpenAI and Prava as deployment fallbacks for first boot. After sign-in, they can be replaced with organization-specific connections from **Shared integrations**.
 4. In the authenticated Integration Center, enter the OpenAI project key/model and Prava `sk_test_*`, `pk_test_*`, and enrolled sandbox customer ID. Each connection is tested before it becomes available to every member.
-5. Click **Test, save & prepare judge login**. Once the migration exists, the wizard creates or repairs the Acme Labs judge account and loads the controlled demo catalog automatically.
+5. Click **Test, save & prepare judge login**. Once the migration exists, the wizard creates or repairs the first administrator account and loads the optional starter catalog.
 6. Continue to sign in with the email and password you entered.
 
-Without provider values, `/overview` remains available as a clearly labeled seeded demo so the visual workflow can still be reviewed.
+Without Supabase, authenticated product routes fail closed and direct the operator back to setup. Missing OpenAI or Prava connections surface actionable errors at the exact step that requires them; SpendScript never substitutes a simulated provider response.
 
 ## Manual environment setup
 

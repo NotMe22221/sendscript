@@ -4,7 +4,6 @@ import type { RequestContext } from "./route";
 import type { MissionStatus, TransactionResult } from "@/lib/domain/schemas";
 
 export async function transitionMission(context: RequestContext, missionId: string, status: MissionStatus, type: string, title: string, detail: string) {
-  if (context.mode === "demo" || !context.supabase) return;
   const { error } = await context.supabase.rpc("transition_mission", {
     p_mission_id: missionId,
     p_new_status: status,
@@ -16,7 +15,6 @@ export async function transitionMission(context: RequestContext, missionId: stri
 }
 
 export async function persistTransaction(context: RequestContext, result: TransactionResult, safeMetadata?: Record<string, unknown>) {
-  if (context.mode === "demo") return;
   const admin = createAdminClient();
   const { error } = await admin.from("transactions").insert({
     id: result.id,
@@ -42,7 +40,6 @@ export async function appendActivityEvent(
   detail: string,
   actorLabel = "SpendScript",
 ) {
-  if (context.mode === "demo") return;
   const { error } = await createAdminClient().from("activity_events").insert({
     organization_id: context.organizationId,
     mission_id: missionId,

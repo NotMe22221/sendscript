@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { DEMO_MISSION_ID, demoRequirements } from "@/lib/domain/demo";
 import type { ApiResponse, MissionRequirements } from "@/lib/domain/schemas";
 
 const samplePrompt = "Buy 8 reliable USB-C hubs for the product team under $350 total. They need 4K HDMI, 100W power delivery, Ethernet, at least two USB-A ports, and must work with Mac and Windows. Deliver by August 18.";
@@ -20,8 +19,8 @@ export function MissionCreateForm() {
   const [phase, setPhase] = useState<"request" | "review">("request");
   const [prompt, setPrompt] = useState(samplePrompt);
   const [pending, setPending] = useState(false);
-  const [missionId, setMissionId] = useState(DEMO_MISSION_ID);
-  const [requirements, setRequirements] = useState<MissionRequirements>(demoRequirements);
+  const [missionId, setMissionId] = useState("");
+  const [requirements, setRequirements] = useState<MissionRequirements | null>(null);
   const [newPort, setNewPort] = useState("");
 
   async function analyze() {
@@ -33,13 +32,14 @@ export function MissionCreateForm() {
       setMissionId(payload.data.missionId);
       setRequirements(payload.data.requirements);
       setPhase("review");
-      toast.success(payload.mode === "live" ? "Request structured with OpenAI" : "Demo extraction loaded", { description: payload.mode === "demo" ? "Connect OpenAI for live structured extraction." : undefined });
+      toast.success("Request structured and saved", { description: "The mission is now persisted in your organization workspace." });
     } catch (error) {
       toast.error("Could not analyze the request", { description: error instanceof Error ? error.message : "Try again." });
     } finally { setPending(false); }
   }
 
   async function confirm() {
+    if (!requirements || !missionId) return;
     setPending(true);
     try {
       const response = await fetch(`/api/missions/${missionId}/confirm`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(requirements) });
@@ -67,7 +67,8 @@ export function MissionCreateForm() {
     </div>
   );
 
-  const update = <K extends keyof MissionRequirements>(key: K, value: MissionRequirements[K]) => setRequirements((current) => ({ ...current, [key]: value }));
+  if (!requirements) return null;
+  const update = <K extends keyof MissionRequirements>(key: K, value: MissionRequirements[K]) => setRequirements((current) => current ? ({ ...current, [key]: value }) : current);
   return (
     <div className="grid gap-5 xl:grid-cols-[1.3fr_.7fr]">
       <Card>
@@ -75,8 +76,8 @@ export function MissionCreateForm() {
         <CardContent className="space-y-5">
           <div><Label htmlFor="title">Mission title</Label><Input id="title" value={requirements.title} onChange={(event) => update("title", event.target.value)} /></div>
           <div className="grid gap-4 sm:grid-cols-3"><div><Label htmlFor="quantity">Quantity</Label><Input id="quantity" type="number" min="1" value={requirements.quantity} onChange={(event) => update("quantity", Number(event.target.value))} /></div><div><Label htmlFor="budget">Total budget (USD)</Label><Input id="budget" type="number" min="1" step=".01" value={requirements.budgetCents / 100} onChange={(event) => update("budgetCents", Math.round(Number(event.target.value) * 100))} /></div><div><Label htmlFor="needed">Needed by</Label><Input id="needed" type="date" value={requirements.neededBy} onChange={(event) => update("neededBy", event.target.value)} /></div></div>
-          <div><Label>Required ports</Label><div className="flex flex-wrap gap-2 rounded-lg border border-[#d0d5dd] bg-white p-2.5">{requirements.specification.ports.map((port) => <button key={port} type="button" onClick={() => setRequirements((current) => ({ ...current, specification: { ...current.specification, ports: current.specification.ports.filter((item) => item !== port) } }))} className="focus-ring inline-flex items-center gap-1.5 rounded-md bg-[#f2f4f7] px-2.5 py-1.5 text-xs font-medium text-[#344054] hover:bg-[#eaecf0]">{port}<X className="size-3" /></button>)}<div className="flex min-w-[150px] flex-1"><input className="min-w-0 flex-1 bg-transparent px-1 text-xs outline-none" value={newPort} onChange={(event) => setNewPort(event.target.value)} placeholder="Add requirement" onKeyDown={(event) => { if (event.key === "Enter" && newPort.trim()) { event.preventDefault(); setRequirements((current) => ({ ...current, specification: { ...current.specification, ports: [...current.specification.ports, newPort.trim()] } })); setNewPort(""); } }} /><button type="button" aria-label="Add port" className="rounded p-1 text-[#155eef]" onClick={() => { if (newPort.trim()) { setRequirements((current) => ({ ...current, specification: { ...current.specification, ports: [...current.specification.ports, newPort.trim()] } })); setNewPort(""); } }}><Plus className="size-4" /></button></div></div></div>
-          <div className="grid gap-4 sm:grid-cols-2"><div><Label htmlFor="power">Power delivery</Label><div className="relative"><Input id="power" type="number" value={requirements.specification.powerDeliveryWatts} onChange={(event) => setRequirements((current) => ({ ...current, specification: { ...current.specification, powerDeliveryWatts: Number(event.target.value) } }))} /><span className="absolute right-3 top-2.5 text-sm text-[#98a2b3]">watts</span></div></div><div><Label htmlFor="display">Display output</Label><Input id="display" value={requirements.specification.display} onChange={(event) => setRequirements((current) => ({ ...current, specification: { ...current.specification, display: event.target.value } }))} /></div></div>
+          <div><Label>Required ports</Label><div className="flex flex-wrap gap-2 rounded-lg border border-[#d0d5dd] bg-white p-2.5">{requirements.specification.ports.map((port) => <button key={port} type="button" onClick={() => setRequirements((current) => current ? ({ ...current, specification: { ...current.specification, ports: current.specification.ports.filter((item) => item !== port) } }) : current)} className="focus-ring inline-flex items-center gap-1.5 rounded-md bg-[#f2f4f7] px-2.5 py-1.5 text-xs font-medium text-[#344054] hover:bg-[#eaecf0]">{port}<X className="size-3" /></button>)}<div className="flex min-w-[150px] flex-1"><input className="min-w-0 flex-1 bg-transparent px-1 text-xs outline-none" value={newPort} onChange={(event) => setNewPort(event.target.value)} placeholder="Add requirement" onKeyDown={(event) => { if (event.key === "Enter" && newPort.trim()) { event.preventDefault(); setRequirements((current) => current ? ({ ...current, specification: { ...current.specification, ports: [...current.specification.ports, newPort.trim()] } }) : current); setNewPort(""); } }} /><button type="button" aria-label="Add port" className="rounded p-1 text-[#155eef]" onClick={() => { if (newPort.trim()) { setRequirements((current) => current ? ({ ...current, specification: { ...current.specification, ports: [...current.specification.ports, newPort.trim()] } }) : current); setNewPort(""); } }}><Plus className="size-4" /></button></div></div></div>
+          <div className="grid gap-4 sm:grid-cols-2"><div><Label htmlFor="power">Power delivery</Label><div className="relative"><Input id="power" type="number" value={requirements.specification.powerDeliveryWatts} onChange={(event) => setRequirements((current) => current ? ({ ...current, specification: { ...current.specification, powerDeliveryWatts: Number(event.target.value) } }) : current)} /><span className="absolute right-3 top-2.5 text-sm text-[#98a2b3]">watts</span></div></div><div><Label htmlFor="display">Display output</Label><Input id="display" value={requirements.specification.display} onChange={(event) => setRequirements((current) => current ? ({ ...current, specification: { ...current.specification, display: event.target.value } }) : current)} /></div></div>
           <div><Label htmlFor="notes">Notes and flexibility</Label><Textarea id="notes" className="min-h-20" value={requirements.notes} onChange={(event) => update("notes", event.target.value)} /></div>
           <div className="flex items-center justify-between border-t border-[#eaecf0] pt-5"><Button variant="ghost" onClick={() => setPhase("request")}>Back to request</Button><Button size="lg" onClick={confirm} disabled={pending}>{pending ? <LoaderCircle className="animate-spin" /> : <Check />}Confirm & source offers<ArrowRight /></Button></div>
         </CardContent>
